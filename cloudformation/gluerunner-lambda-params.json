@@ -1,0 +1,18 @@
+[
+  {
+    "ParameterKey": "SourceS3BucketName",
+    "ParameterValue": "<NO-DEFAULT>"
+  },
+  {
+    "ParameterKey": "SourceS3Key",
+    "ParameterValue": "src/gluerunner.zip"
+  },
+  {
+    "ParameterKey": "DDBTableName",
+    "ParameterValue": "GlueRunnerActiveJobs"
+  },
+  {
+    "ParameterKey": "GlueRunnerLambdaFunctionName",
+    "ParameterValue": "gluerunner"
+  }
+]

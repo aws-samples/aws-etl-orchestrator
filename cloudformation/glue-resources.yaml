@@ -1,0 +1,317 @@
+ # Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ #
+ # Permission is hereby granted, free of charge, to any person obtaining a copy of this
+ # software and associated documentation files (the "Software"), to deal in the Software
+ # without restriction, including without limitation the rights to use, copy, modify,
+ # merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+ # permit persons to whom the Software is furnished to do so.
+ #
+ # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ # INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ # PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ # HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  This template sets up sample AWS Glue resources to be orchestrated by AWS Step Functions.
+
+Parameters:
+
+  MarketingAndSalesDatabaseName:
+    Type: String
+    MinLength: "4"
+    Default: "marketingandsales_qs"
+    Description: "Name of the AWS Glue database to contain this CloudFormation template's tables."
+
+  SalesPipelineTableName:
+    Type: String
+    MinLength: "4"
+    Default: "salespipeline_qs"
+    Description: "Name of the Sales Pipeline data table in AWS Glue."
+
+  MarketingTableName:
+    Type: String
+    MinLength: "4"
+    Default: "marketing_qs"
+    Description: "Name of the Marketing data table in AWS Glue."
+
+  S3ETLScriptPath:
+    Type: String
+    MinLength: "4"
+    Description: "Location of the Glue job ETL scripts in S3."
+
+  S3ETLOutputPath:
+    Type: String
+    MinLength: "10"
+    Description: "Name of the S3 output path to which this CloudFormation template's AWS Glue jobs are going to write ETL output."
+
+Resources:
+
+  ### AWS GLUE RESOURCES ###
+  AWSGlueCrawlerRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - glue.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AdministratorAccess
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+      Path: "/"
+
+  AWSGlueJobRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - glue.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AdministratorAccess
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+      Path: "/"
+
+  MarketingAndSalesDatabase:
+    Type: "AWS::Glue::Database"
+    Properties:
+      DatabaseInput:
+        Description: "Marketing and Sales database (Amazon QuickSight Samples)."
+        Name: !Ref MarketingAndSalesDatabaseName
+      CatalogId: !Ref AWS::AccountId
+
+  SalesPipelineTable:
+    Type: "AWS::Glue::Table"
+    DependsOn: MarketingAndSalesDatabase
+    Properties:
+      TableInput:
+        Description: "Sales Pipeline table (Amazon QuickSight Sample)."
+        TableType: "EXTERNAL_TABLE"
+        Parameters: {
+                "CrawlerSchemaDeserializerVersion": "1.0",
+                "compressionType": "none",
+                "classification": "csv",
+                "recordCount": "16831",
+                "typeOfData": "file",
+                "CrawlerSchemaSerializerVersion": "1.0",
+                "columnsOrdered": "true",
+                "objectCount": "1",
+                "delimiter": ",",
+                "skip.header.line.count": "1",
+                "averageRecordSize": "119",
+                "sizeKey": "2002910"
+        }
+        StorageDescriptor:
+          StoredAsSubDirectories: False
+          Parameters: {
+                  "CrawlerSchemaDeserializerVersion": "1.0",
+                  "compressionType": "none",
+                  "classification": "csv",
+                  "recordCount": "16831",
+                  "typeOfData": "file",
+                  "CrawlerSchemaSerializerVersion": "1.0",
+                  "columnsOrdered": "true",
+                  "objectCount": "1",
+                  "delimiter": ",",
+                  "skip.header.line.count": "1",
+                  "averageRecordSize": "119",
+                  "sizeKey": "2002910"
+          }
+          InputFormat: "org.apache.hadoop.mapred.TextInputFormat"
+          OutputFormat: "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+          Columns:
+            - Type: string
+              Name: date
+            - Type: string
+              Name: salesperson
+            - Type: string
+              Name: lead name
+            - Type: string
+              Name: segment
+            - Type: string
+              Name: region
+            - Type: string
+              Name: target close
+            - Type: bigint
+              Name: forecasted monthly revenue
+            - Type: string
+              Name: opportunity stage
+            - Type: bigint
+              Name: weighted revenue
+            - Type: boolean
+              Name: closed opportunity
+            - Type: boolean
+              Name: active opportunity
+            - Type: boolean
+              Name: latest status entry
+          SerdeInfo:
+            Parameters: {
+                        "field.delim": ","
+            }
+            SerializationLibrary: "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe"
+          Compressed: False
+          Location: "s3://quicksightsampledata/SalesPipeline_QuickSightSample.csv"
+        Retention: 0
+        Name: !Ref SalesPipelineTableName
+      DatabaseName: !Ref MarketingAndSalesDatabaseName
+      CatalogId: !Ref AWS::AccountId
+
+  MarketingTable:
+    Type: "AWS::Glue::Table"
+    DependsOn: MarketingAndSalesDatabase
+    Properties:
+      TableInput:
+        Description: "Marketing table (Amazon QuickSight Sample)."
+        TableType: "EXTERNAL_TABLE"
+        Parameters: {
+                    "CrawlerSchemaDeserializerVersion": "1.0",
+                    "compressionType": "none",
+                    "classification": "csv",
+                    "recordCount": "948",
+                    "typeOfData": "file",
+                    "CrawlerSchemaSerializerVersion": "1.0",
+                    "columnsOrdered": "true",
+                    "objectCount": "1",
+                    "delimiter": ",",
+                    "skip.header.line.count": "1",
+                    "averageRecordSize": "160",
+                    "sizeKey": "151746"
+        }
+        StorageDescriptor:
+          StoredAsSubDirectories: False
+          Parameters: {
+                    "CrawlerSchemaDeserializerVersion": "1.0",
+                    "compressionType": "none",
+                    "classification": "csv",
+                    "recordCount": "948",
+                    "typeOfData": "file",
+                    "CrawlerSchemaSerializerVersion": "1.0",
+                    "columnsOrdered": "true",
+                    "objectCount": "1",
+                    "delimiter": ",",
+                    "skip.header.line.count": "1",
+                    "averageRecordSize": "160",
+                    "sizeKey": "151746"
+          }
+          InputFormat: "org.apache.hadoop.mapred.TextInputFormat"
+          OutputFormat: "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+          Columns:
+            - Type: string
+              Name: date
+            - Type: bigint
+              Name: new visitors seo
+            - Type: bigint
+              Name: new visitors cpc
+            - Type: bigint
+              Name: new visitors social media
+            - Type: bigint
+              Name: return visitors
+            - Type: bigint
+              Name: twitter mentions
+            - Type: bigint
+              Name: twitter follower adds
+            - Type: bigint
+              Name: twitter followers cumulative
+            - Type: bigint
+              Name: mailing list adds
+            - Type: bigint
+              Name: mailing list cumulative
+            - Type: bigint
+              Name: website pageviews
+            - Type: bigint
+              Name: website visits
+            - Type: bigint
+              Name: website unique visits
+            - Type: bigint
+              Name: mobile uniques
+            - Type: bigint
+              Name: tablet uniques
+            - Type: bigint
+              Name: desktop uniques
+            - Type: bigint
+              Name: free sign up
+            - Type: bigint
+              Name: paid conversion
+            - Type: string
+              Name: events
+          SerdeInfo:
+            Parameters: {
+                        "field.delim": ","
+            }
+            SerializationLibrary: "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe"
+          Compressed: False
+          Location: "s3://quicksightsampledata/MarketingData_QuickSightSample.csv"
+        Retention: 0
+        Name: !Ref MarketingTableName
+      DatabaseName: !Ref MarketingAndSalesDatabaseName
+      CatalogId: !Ref AWS::AccountId
+
+  ProcessSalesDataJob:
+    Type: "AWS::Glue::Job"
+    Properties:
+      Role: !Ref AWSGlueJobRole
+      Name: "ProcessSalesData"
+      Command: {
+        "Name" : "glueetl",
+        "ScriptLocation" : !Sub "${S3ETLScriptPath}/process_sales_data.py"
+      }
+      DefaultArguments: {
+          "--database_name" : !Ref MarketingAndSalesDatabaseName,
+          "--table_name" : !Ref SalesPipelineTableName,
+          "--s3_output_path" : !Sub "${S3ETLOutputPath}/tmp/sales"
+      }
+      MaxRetries: 0
+      Description: "Process Sales Pipeline data."
+      AllocatedCapacity: 5
+
+  ProcessMarketingDataJob:
+    Type: "AWS::Glue::Job"
+    Properties:
+      Role: !Ref AWSGlueJobRole
+      Name: "ProcessMarketingData"
+      Command: {
+        "Name" : "glueetl",
+        "ScriptLocation" : !Sub "${S3ETLScriptPath}/process_marketing_data.py"
+      }
+      DefaultArguments: {
+          "--database_name" : !Ref MarketingAndSalesDatabaseName,
+          "--table_name" : !Ref MarketingTableName,
+          "--s3_output_path" : !Sub "${S3ETLOutputPath}/tmp/marketing"
+      }
+      MaxRetries: 0
+      Description: "Process Marketing data."
+      AllocatedCapacity: 5
+
+  JoinMarketingAndSalesDataJob:
+    Type: "AWS::Glue::Job"
+    Properties:
+      Role: !Ref AWSGlueJobRole
+      Name: "JoinMarketingAndSalesData"
+      Command: {
+        "Name" : "glueetl",
+        "ScriptLocation" : !Sub "${S3ETLScriptPath}/join_marketing_and_sales_data.py"
+      }
+      DefaultArguments: {
+          "--database_name" : !Ref MarketingAndSalesDatabaseName,
+          "--s3_output_path" : !Sub "${S3ETLOutputPath}/sales-leads-influenced",
+          "--s3_sales_data_path" : !Sub "${S3ETLOutputPath}/tmp/sales",
+          "--s3_marketing_data_path" : !Sub "${S3ETLOutputPath}/tmp/marketing"
+      }
+      MaxRetries: 0
+      Description: "Join Marketing and Sales data."
+      AllocatedCapacity: 5

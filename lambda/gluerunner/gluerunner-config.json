@@ -1,0 +1,7 @@
+{
+  "sfn_activity_arn": "arn:aws:states:us-east-1:074599006431:activity:GlueRunnerActivity",
+  "sfn_worker_name": "gluerunner",
+  "ddb_table": "GlueRunnerActiveJobs",
+  "ddb_query_limit": 50,
+  "glue_job_capacity": 10
+}

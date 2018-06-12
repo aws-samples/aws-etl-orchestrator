@@ -1,0 +1,18 @@
+[
+  {
+    "ParameterKey": "SourceS3BucketName",
+    "ParameterValue": "<NO-DEFAULT>"
+  },
+  {
+    "ParameterKey": "SourceS3Key",
+    "ParameterValue": "src/ons3objectcreated.zip"
+  },
+  {
+    "ParameterKey": "GlueRunnerActivityName",
+    "ParameterValue": "GlueRunnerActivity"
+  },
+  {
+    "ParameterKey": "SourceDataBucketName",
+    "ParameterValue": "<NO-DEFAULT>"
+  }
+]

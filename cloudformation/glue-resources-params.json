@@ -1,0 +1,10 @@
+[
+  {
+    "ParameterKey": "S3ETLScriptPath",
+    "ParameterValue": "<NO-DEFAULT>"
+  },
+  {
+    "ParameterKey": "S3ETLOutputPath",
+    "ParameterValue": "<NO-DEFAULT>"
+  }
+]

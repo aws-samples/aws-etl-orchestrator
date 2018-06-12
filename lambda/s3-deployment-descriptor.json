@@ -1,0 +1,10 @@
+{
+  "gluerunner": {
+    "SourceS3BucketName": "<NO-DEFAULT>",
+    "SourceS3Key":"src/gluerunner.zip"
+  },
+  "ons3objectcreated": {
+    "SourceS3BucketName": "<NO-DEFAULT>",
+    "SourceS3Key":"src/ons3objectcreated.zip"
+  }
+}
