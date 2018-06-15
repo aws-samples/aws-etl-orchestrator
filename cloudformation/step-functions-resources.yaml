@@ -55,8 +55,16 @@ Resources:
             - states.us-east-1.amazonaws.com
           Action:
           - sts:AssumeRole
-      ManagedPolicyArns:
-        - !Sub "arn:aws:iam::${AWS::AccountId}:policy/service-role/StatesExecutionPolicy-us-east-1"
+      Policies:
+        -
+          PolicyName: "StatesExecutionPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action: "lambda:InvokeFunction"
+                Resource: "*"
       Path: "/"
 
   # Activity resources
