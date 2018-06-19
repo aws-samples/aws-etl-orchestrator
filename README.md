@@ -81,7 +81,7 @@ In this code sample, there are three separate AWS CloudFormation templates. You 
 
 For our ETL example, the `step-functions-resources.yaml` CloudFormation template creates a State Machine named `MarketingAndSalesETLOrchestrator`. You can start an execution from the AWS Step Functions console, or through an AWS CLI command.
 
-### Handling failed Glue jobs
+### Handling failed ETL jobs
 
 What if a job in the ETL workflow fails? In such a case, there are error-handling strategies available to the ETL workflow developer, from simply notifying an administrator, to fully undoing the effects of the previous jobs through compensating ETL jobs. Detecting and responding to a failed Glue job can be implemented using AWS Step Functions' Catch mechanism, which is explained in [this tutorial](https://docs.aws.amazon.com/step-functions/latest/dg/tutorial-handling-error-conditions.html). In this code sample, this state is a do-nothing [Pass](https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-pass-state.html) state. You can change that state into a [Task](https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-task-state.html) state that triggers your error-handling logic in an AWS Lambda function.
 
