@@ -6,5 +6,9 @@
   {
     "ParameterKey": "S3ETLOutputPath",
     "ParameterValue": "<NO-DEFAULT>"
+  },
+  {
+    "ParameterKey": "SourceDataBucketName",
+    "ParameterValue": "<NO-DEFAULT>"
   }
 ]
