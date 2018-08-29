@@ -1,4 +1,8 @@
 {
+  "athenarunner": {
+    "SourceS3BucketName": "<NO-DEFAULT>",
+    "SourceS3Key":"src/athenarunner.zip"
+  },
   "gluerunner": {
     "SourceS3BucketName": "<NO-DEFAULT>",
     "SourceS3Key":"src/gluerunner.zip"

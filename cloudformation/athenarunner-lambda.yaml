@@ -1,0 +1,152 @@
+ # Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ #
+ # Permission is hereby granted, free of charge, to any person obtaining a copy of this
+ # software and associated documentation files (the "Software"), to deal in the Software
+ # without restriction, including without limitation the rights to use, copy, modify,
+ # merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+ # permit persons to whom the Software is furnished to do so.
+ #
+ # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ # INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ # PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ # HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: The CloudFormation template for AWS resources required by Athena Runner.
+
+Parameters:
+
+  DDBTableName:
+    Type: String
+    Default: "AthenaRunnerActiveQueries"
+    Description: "Name of the DynamoDB table for persistence & querying of active Athena queries' statuses."
+
+  AthenaRunnerLambdaFunctionName:
+    Type: String
+    Default: "athenarunner"
+    Description: "Name of the Lambda function that mediates between AWS Step Functions and AWS Athena."
+
+  SourceS3BucketName:
+    Type: String
+    MinLength: "1"
+    Description: "Name of the S3 bucket containing source .zip files."
+
+  SourceS3Key:
+    Type: String
+    MinLength: "1"
+    Description: "Name of the S3 key of Athena Runner lambda function .zip file."
+
+Resources:
+
+  AthenaRunnerLambdaExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+        - arn:aws:iam::aws:policy/AmazonSNSFullAccess
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+        - arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess
+
+      Path: "/"
+
+  AmazonAthenaFullAccessPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyDocument: {
+          "Version": "2012-10-17",
+          "Statement": [
+              {
+                  "Effect": "Allow",
+                  "Action": "athena:*",
+                  "Resource": "*"
+              }
+          ]
+      }
+      PolicyName: "AmazonAthenaFullAccessForAthenaRunner"
+      Roles:
+        - !Ref AthenaRunnerLambdaExecutionRole
+
+  AWSGlueFullAccessPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyDocument: {
+          "Version": "2012-10-17",
+          "Statement": [
+              {
+                  "Effect": "Allow",
+                  "Action": "glue:*",
+                  "Resource": "*"
+              }
+          ]
+      }
+      PolicyName: "AWSGlueFullAccessForAthenaRunner"
+      Roles:
+        - !Ref AthenaRunnerLambdaExecutionRole
+
+  AthenaRunnerLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: "athenarunner"
+      Description: "Starts and monitors AWS Athena queries on behalf of AWS Step Functions for a specific Activity ARN."
+      Handler: "athenarunner.handler"
+      Role: !GetAtt AthenaRunnerLambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref SourceS3BucketName
+        S3Key: !Ref SourceS3Key
+      Timeout: 180 #seconds
+      MemorySize: 128 #MB
+      Runtime: python2.7
+    DependsOn:
+      - AmazonAthenaFullAccessPolicy
+      - AWSGlueFullAccessPolicy
+      - AthenaRunnerLambdaExecutionRole
+
+  ScheduledRule:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Description: "ScheduledRule"
+      ScheduleExpression: "rate(3 minutes)"
+      State: "ENABLED"
+      Targets:
+        -
+          Arn: !GetAtt AthenaRunnerLambdaFunction.Arn
+          Id: "AthenaRunner"
+
+  PermissionForEventsToInvokeLambda:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !Ref AthenaRunnerLambdaFunction
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt ScheduledRule.Arn
+
+  AthenaRunnerActiveQueriesTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      TableName: !Ref DDBTableName
+      KeySchema:
+        - KeyType: "HASH"
+          AttributeName: "sfn_activity_arn"
+        - KeyType: "RANGE"
+          AttributeName: "athena_query_execution_id"
+      AttributeDefinitions:
+        - AttributeName: "sfn_activity_arn"
+          AttributeType: "S"
+        - AttributeName: "athena_query_execution_id"
+          AttributeType: "S"
+      ProvisionedThroughput:
+            WriteCapacityUnits: 10
+            ReadCapacityUnits: 10
