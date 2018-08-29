@@ -1,0 +1,18 @@
+[
+  {
+    "ParameterKey": "SourceS3BucketName",
+    "ParameterValue": "<NO-DEFAULT>"
+  },
+  {
+    "ParameterKey": "SourceS3Key",
+    "ParameterValue": "src/athenarunner.zip"
+  },
+  {
+    "ParameterKey": "DDBTableName",
+    "ParameterValue": "AthenaRunnerActiveJobs"
+  },
+  {
+    "ParameterKey": "AthenaRunnerLambdaFunctionName",
+    "ParameterValue": "athenarunner"
+  }
+]
