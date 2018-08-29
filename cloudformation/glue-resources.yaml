@@ -48,6 +48,11 @@ Parameters:
     MinLength: "10"
     Description: "Name of the S3 output path to which this CloudFormation template's AWS Glue jobs are going to write ETL output."
 
+  SourceDataBucketName:
+    Type: String
+    MinLength: "1"
+    Description: "Name of the S3 bucket in which the source Marketing and Sales data will be uploaded. Bucket is created by this CFT."
+
 Resources:
 
   ### AWS GLUE RESOURCES ###
@@ -165,7 +170,7 @@ Resources:
             }
             SerializationLibrary: "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe"
           Compressed: False
-          Location: "s3://quicksightsampledata/SalesPipeline_QuickSightSample.csv"
+          Location: !Sub "s3://${SourceDataBucketName}/sales/"
         Retention: 0
         Name: !Ref SalesPipelineTableName
       DatabaseName: !Ref MarketingAndSalesDatabaseName
@@ -255,7 +260,7 @@ Resources:
             }
             SerializationLibrary: "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe"
           Compressed: False
-          Location: "s3://quicksightsampledata/MarketingData_QuickSightSample.csv"
+          Location: !Sub "s3://${SourceDataBucketName}/marketing/"
         Retention: 0
         Name: !Ref MarketingTableName
       DatabaseName: !Ref MarketingAndSalesDatabaseName

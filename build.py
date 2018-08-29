@@ -318,7 +318,7 @@ def deploygluescripts(**kwargs):
             "ERROR: S3ETLScriptPath must be set in 'cloudformation/glue-resources-params.json'.")
         return
 
-    result = re.search('s3://(.*)/(.*)', s3_etl_script_path)
+    result = re.search('s3://(.+?)/(.*)', s3_etl_script_path)
     if(result is None):
         print("ERROR: S3ETLScriptPath is malformed.")
         return
