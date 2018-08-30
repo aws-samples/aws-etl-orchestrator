@@ -20,10 +20,33 @@ Description: >
 
 Parameters:
 
+  MarketingAndSalesDatabaseName:
+    Type: String
+    MinLength: "4"
+    Default: "marketingandsales_qs"
+    Description: "Name of the AWS Glue database."
+
+  SalesPipelineTableName:
+    Type: String
+    MinLength: "4"
+    Default: "salespipeline_qs"
+    Description: "Name of the Sales Pipeline data table in AWS Glue."
+
+  MarketingTableName:
+    Type: String
+    MinLength: "4"
+    Default: "marketing_qs"
+    Description: "Name of the Marketing data table in AWS Glue."
+
   GlueRunnerActivityName:
     Type: String
     Default: "GlueRunnerActivity"
     Description: "Name of the AWS Step Functions activity to be polled by GlueRunner."
+
+  AthenaRunnerActivityName:
+    Type: String
+    Default: "AthenaRunnerActivity"
+    Description: "Name of the AWS Step Functions activity to be polled by AthenaRunner."
 
   SourceS3BucketName:
     Type: String
@@ -73,6 +96,11 @@ Resources:
     Properties:
       Name: !Ref GlueRunnerActivityName
 
+  AthenaRunnerActivity:
+    Type: "AWS::StepFunctions::Activity"
+    Properties:
+      Name: !Ref AthenaRunnerActivityName
+
   WaitForSalesDataActivity:
     Type: "AWS::StepFunctions::Activity"
     Properties:
@@ -84,7 +112,39 @@ Resources:
       Name: !Sub "${SourceDataBucketName}-MarketingData_QuickSightSample.csv"
 
 
-  # State Machine resource
+  # State Machine resources
+
+  # State machine for testing Athena Runner
+  AthenaRunnerTestETLOrchestrator:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      StateMachineName: AthenaRunnerTestETLOrchestrator
+      DefinitionString:
+        Fn::Sub:
+          - |-
+            {
+              "StartAt": "Configure Athena Query",
+              "States": {
+                "Configure Athena Query":{
+                  "Type": "Pass",
+                  "Result": "{ \"AthenaQueryString\" : \"SELECT * FROM ${GlueTableName} limit 10;\", \"AthenaDatabase\": \"${GlueDatabaseName}\", \"AthenaResultOutputLocation\": \"${AthenaResultOutputLocation}\", \"AthenaResultEncryptionOption\": \"${AthenaResultEncryptionOption}\"}",
+                  "Next": "Execute Athena Query"
+                },
+                "Execute Athena Query":{
+                  "Type": "Task",
+                  "Resource": "${AthenaRunnerActivityArn}",
+                  "End": true
+                }
+              }
+            }
+          - {
+            GlueDatabaseName: !Ref MarketingAndSalesDatabaseName,
+            GlueTableName: !Ref MarketingTableName,
+            AthenaRunnerActivityArn: !Ref AthenaRunnerActivity,
+            AthenaResultOutputLocation: !Sub "s3://${SourceDataBucketName}/athena-runner-output/",
+            AthenaResultEncryptionOption: "SSE_S3"
+        }
+      RoleArn: !GetAtt StateExecutionRole.Arn
 
   MarketingAndSalesETLOrchestrator:
     Type: "AWS::StepFunctions::StateMachine"
@@ -182,6 +242,8 @@ Resources:
             JoinMarketingAndSalesDataJobName: "JoinMarketingAndSalesData"
         }
       RoleArn: !GetAtt StateExecutionRole.Arn
+
+
 
   # On S3 Object Created Lambda Functions resources
 
