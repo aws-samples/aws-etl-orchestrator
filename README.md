@@ -399,18 +399,22 @@ Valid parameters to this command are `glue-resources`, `gluerunner-lambda`, `ste
 
 Note that for `gluerunner-lambda` stack, you must first package and deploy Glue Runner function to Amazon S3 using the `packagelambda` and then `deploylambda` commands for the AWS CloudFormation stack creation to succeed.
 
-You can create the project's stacks as follows:
+Examples of using `createstack`:
 
 ```bash
-#Create AWS Glue resources first
-pynt createstack["glue-resources"]
-
-#Create AWS Step Functions resources second
+#Create AWS Step Functions resources
 pynt createstack["step-functions-resources"]
-
-#Finally, create Glue Runner AWS Lambda function resources
+```
+```bash
+#Create AWS Glue resources
+pynt createstack["glue-resources"]
+```
+```bash
+#Create Glue Runner AWS Lambda function resources
 pynt createstack["gluerunner-lambda"]
 ```
+
+**For a complete example, please refer to the 'Putting it all together' section.**
 
 Stack creation should take a few minutes. At any time, you can check on the prototype's stack status either through the AWS CloudFormation console or by issuing the following command.
 
