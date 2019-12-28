@@ -501,9 +501,9 @@ Note that the `step-functions-resources` stack **must** be created first, before
 Now head to the AWS Step Functions console. Start and observe an execution of the 'MarketingAndSalesETLOrchestrator' state machine. Execution should halt at the 'Wait for XYZ Data' states. At this point, you should upload the sample .CSV files under the `samples` directory to the S3 bucket you specified as the `SourceDataBucketName` parameter value in `step-functions-resources-config.json` configuration file. **Upload the marketing sample file under prefix 'marketing' and the sales sample file under prefix 'sales'. To do that, you may issue the following AWS CLI commands while at the project's root directory:**
 
 ```
-aws s3 cp samples/MarketingData_QuickSightSample.csv s3://{SourceDataBucketName}/marketing/
+aws s3 cp samples/MarketingData_QuickSightSample.csv s3://{DataBucketName}/marketing/
 
-aws s3 cp samples/SalesPipeline_QuickSightSample.csv s3://{SourceDataBucketName}/sales/
+aws s3 cp samples/SalesPipeline_QuickSightSample.csv s3://{DataBucketName}/sales/
 ```
 
 This should allow the state machine to move on to next steps -- Process Sales Data and Process Marketing Data.
