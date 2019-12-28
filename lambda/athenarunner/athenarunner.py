@@ -34,7 +34,7 @@ def load_config():
 def is_json(jsonstring):
     try:
         json_object = json.loads(jsonstring)
-    except ValueError, e:
+    except ValueError:
         return False
     return True
 
@@ -177,102 +177,114 @@ def check_athena_queries(config):
         athena_query_execution_id = item['athena_query_execution_id']
         sfn_task_token = item['sfn_task_token']
 
-        logger.debug('Polling Athena query execution status..')
+        try:
+            logger.debug('Polling Athena query execution status..')
 
-        # Query athena query execution status...
-        athena_resp = athena.get_query_execution(
-            QueryExecutionId=athena_query_execution_id
-        )
-
-        query_exec_resp = athena_resp['QueryExecution']
-        query_exec_state = query_exec_resp['Status']['State']
-        query_state_change_reason = query_exec_resp['Status'].get('StateChangeReason', '')
-
-        logger.debug('Query with Execution Id {} is currently in state "{}"'.format(query_exec_state, query_state_change_reason))
-
-        # If Athena query completed, return success:
-        if query_exec_state in ['SUCCEEDED']:
-
-            logger.info('Query with Execution Id {} SUCCEEDED.'.format(athena_query_execution_id))
-
-            # Build an output dict and format it as JSON
-            task_output_dict = {
-                "AthenaQueryString": query_exec_resp['Query'],
-                "AthenaQueryExecutionId": athena_query_execution_id,
-                "AthenaQueryExecutionState": query_exec_state,
-                "AthenaQueryExecutionStateChangeReason": query_state_change_reason,
-                "AthenaQuerySubmissionDateTime": query_exec_resp['Status'].get('SubmissionDateTime', '').strftime('%x, %-I:%M %p %Z'),
-                "AthenaQueryCompletionDateTime": query_exec_resp['Status'].get('CompletionDateTime', '').strftime(
-                    '%x, %-I:%M %p %Z'),
-                "AthenaQueryEngineExecutionTimeInMillis": query_exec_resp['Statistics'].get('EngineExecutionTimeInMillis', 0),
-                "AthenaQueryDataScannedInBytes": query_exec_resp['Statistics'].get('DataScannedInBytes', 0)
-            }
-
-            task_output_json = json.dumps(task_output_dict)
-
-
-            logger.info('Sending "Task Succeeded" signal to Step Functions..')
-            sfn_resp = sfn.send_task_success(
-                taskToken=sfn_task_token,
-                output=task_output_json
+            # Query athena query execution status...
+            athena_resp = athena.get_query_execution(
+                QueryExecutionId=athena_query_execution_id
             )
 
-            # Delete item
-            resp = ddb_table.delete_item(
-                Key={
-                    'sfn_activity_arn': sfn_activity_arn,
-                    'athena_query_execution_id': athena_query_execution_id
+            query_exec_resp = athena_resp['QueryExecution']
+            query_exec_state = query_exec_resp['Status']['State']
+            query_state_change_reason = query_exec_resp['Status'].get('StateChangeReason', '')
+
+            logger.debug('Query with Execution Id {} is currently in state "{}"'.format(query_exec_state,
+                                                                                        query_state_change_reason))
+
+            # If Athena query completed, return success:
+            if query_exec_state in ['SUCCEEDED']:
+
+                logger.info('Query with Execution Id {} SUCCEEDED.'.format(athena_query_execution_id))
+
+                # Build an output dict and format it as JSON
+                task_output_dict = {
+                    "AthenaQueryString": query_exec_resp['Query'],
+                    "AthenaQueryExecutionId": athena_query_execution_id,
+                    "AthenaQueryExecutionState": query_exec_state,
+                    "AthenaQueryExecutionStateChangeReason": query_state_change_reason,
+                    "AthenaQuerySubmissionDateTime": query_exec_resp['Status'].get('SubmissionDateTime', '').strftime(
+                        '%x, %-I:%M %p %Z'),
+                    "AthenaQueryCompletionDateTime": query_exec_resp['Status'].get('CompletionDateTime', '').strftime(
+                        '%x, %-I:%M %p %Z'),
+                    "AthenaQueryEngineExecutionTimeInMillis": query_exec_resp['Statistics'].get(
+                        'EngineExecutionTimeInMillis', 0),
+                    "AthenaQueryDataScannedInBytes": query_exec_resp['Statistics'].get('DataScannedInBytes', 0)
                 }
-            )
 
-            # Task succeeded, next item
+                task_output_json = json.dumps(task_output_dict)
 
-        elif query_exec_state in ['RUNNING', 'QUEUED']:
-            logger.debug('Query with Execution Id {} is in state hasn\'t completed yet.'.format(athena_query_execution_id))
+                logger.info('Sending "Task Succeeded" signal to Step Functions..')
+                sfn_resp = sfn.send_task_success(
+                    taskToken=sfn_task_token,
+                    output=task_output_json
+                )
 
-            # Send heartbeat
-            sfn_resp = sfn.send_task_heartbeat(
-                taskToken=sfn_task_token
-            )
+                # Delete item
+                resp = ddb_table.delete_item(
+                    Key={
+                        'sfn_activity_arn': sfn_activity_arn,
+                        'athena_query_execution_id': athena_query_execution_id
+                    }
+                )
 
-            logger.debug('Heartbeat sent to Step Functions.')
+                # Task succeeded, next item
 
-            # Heartbeat sent, next item
+            elif query_exec_state in ['RUNNING', 'QUEUED']:
+                logger.debug(
+                    'Query with Execution Id {} is in state hasn\'t completed yet.'.format(athena_query_execution_id))
 
-        elif query_exec_state in ['FAILED', 'CANCELLED']:
+                # Send heartbeat
+                sfn_resp = sfn.send_task_heartbeat(
+                    taskToken=sfn_task_token
+                )
 
-            message = 'Athena query with Execution Id "{}" failed. Last state: {}. Error message: {}'\
-                .format(athena_query_execution_id, query_exec_state, query_state_change_reason)
+                logger.debug('Heartbeat sent to Step Functions.')
 
-            logger.error(message)
+                # Heartbeat sent, next item
 
-            message_json={
-                "AthenaQueryString": query_exec_resp['Query'],
-                "AthenaQueryExecutionId": athena_query_execution_id,
-                "AthenaQueryExecutionState": query_exec_state,
-                "AthenaQueryExecutionStateChangeReason": query_state_change_reason,
-                "AthenaQuerySubmissionDateTime": query_exec_resp['Status'].get('SubmissionDateTime', '').strftime('%x, %-I:%M %p %Z'),
-                "AthenaQueryCompletionDateTime": query_exec_resp['Status'].get('CompletionDateTime', '').strftime(
-                    '%x, %-I:%M %p %Z'),
-                "AthenaQueryEngineExecutionTimeInMillis": query_exec_resp['Statistics'].get('EngineExecutionTimeInMillis', 0),
-                "AthenaQueryDataScannedInBytes": query_exec_resp['Statistics'].get('DataScannedInBytes', 0)
-            }
+            elif query_exec_state in ['FAILED', 'CANCELLED']:
 
-            sfn_resp = sfn.send_task_failure(
-                taskToken=sfn_task_token,
-                cause=json.dumps(message_json),
-                error='AthenaQueryFailedError'
-            )
+                message = 'Athena query with Execution Id "{}" failed. Last state: {}. Error message: {}' \
+                    .format(athena_query_execution_id, query_exec_state, query_state_change_reason)
 
-            # Delete item
-            resp = ddb_table.delete_item(
-                Key={
-                    'sfn_activity_arn': sfn_activity_arn,
-                    'athena_query_execution_id': athena_query_execution_id
+                logger.error(message)
+
+                message_json = {
+                    "AthenaQueryString": query_exec_resp['Query'],
+                    "AthenaQueryExecutionId": athena_query_execution_id,
+                    "AthenaQueryExecutionState": query_exec_state,
+                    "AthenaQueryExecutionStateChangeReason": query_state_change_reason,
+                    "AthenaQuerySubmissionDateTime": query_exec_resp['Status'].get('SubmissionDateTime', '').strftime(
+                        '%x, %-I:%M %p %Z'),
+                    "AthenaQueryCompletionDateTime": query_exec_resp['Status'].get('CompletionDateTime', '').strftime(
+                        '%x, %-I:%M %p %Z'),
+                    "AthenaQueryEngineExecutionTimeInMillis": query_exec_resp['Statistics'].get(
+                        'EngineExecutionTimeInMillis', 0),
+                    "AthenaQueryDataScannedInBytes": query_exec_resp['Statistics'].get('DataScannedInBytes', 0)
                 }
-            )
 
-            logger.error(message)
+                sfn_resp = sfn.send_task_failure(
+                    taskToken=sfn_task_token,
+                    cause=json.dumps(message_json),
+                    error='AthenaQueryFailedError'
+                )
+
+                # Delete item
+                resp = ddb_table.delete_item(
+                    Key={
+                        'sfn_activity_arn': sfn_activity_arn,
+                        'athena_query_execution_id': athena_query_execution_id
+                    }
+                )
+
+                logger.error(message)
+
+        except Exception as e:
+            logger.error('There was a problem checking status of Athena query..')
+            logger.error('Glue job Run Id "{}"'.format(athena_query_execution_id))
+            logger.error('Reason: {}'.format(e.message))
+            logger.info('Checking next Athena query.')
 
             # Task failed, next item
 

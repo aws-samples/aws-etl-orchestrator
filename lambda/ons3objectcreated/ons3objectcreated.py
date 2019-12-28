@@ -6,7 +6,6 @@ import boto3
 import logging, logging.config
 from botocore.client import Config
 
-s3 = boto3.client('s3')
 # Because Step Functions client uses long polling, read timeout has to be > 60 seconds
 sfn_client_config = Config(connect_timeout=50, read_timeout=70)
 sfn = boto3.client('stepfunctions', config=sfn_client_config)

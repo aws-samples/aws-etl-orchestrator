@@ -1,10 +1,10 @@
 [
   {
-    "ParameterKey": "SourceS3BucketName",
+    "ParameterKey": "ArtifactBucketName",
     "ParameterValue": "<NO-DEFAULT>"
   },
   {
-    "ParameterKey": "SourceS3Key",
+    "ParameterKey": "LambdaSourceS3Key",
     "ParameterValue": "src/athenarunner.zip"
   },
   {

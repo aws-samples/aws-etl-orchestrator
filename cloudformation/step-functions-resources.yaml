@@ -48,17 +48,17 @@ Parameters:
     Default: "AthenaRunnerActivity"
     Description: "Name of the AWS Step Functions activity to be polled by AthenaRunner."
 
-  SourceS3BucketName:
+  ArtifactBucketName:
     Type: String
     MinLength: "1"
-    Description: "Name of the S3 bucket containing source .zip files."
+    Description: "Name of the S3 bucket containing source .zip files. Bucket is NOT created by this CFT."
 
-  SourceS3Key:
+  LambdaSourceS3Key:
     Type: String
     MinLength: "1"
     Description: "Name of the S3 key of Glue Runner lambda function .zip file."
 
-  SourceDataBucketName:
+  DataBucketName:
     Type: String
     MinLength: "1"
     Description: "Name of the S3 bucket in which the source Marketing and Sales data will be uploaded. Bucket is created by this CFT."
@@ -104,12 +104,12 @@ Resources:
   WaitForSalesDataActivity:
     Type: "AWS::StepFunctions::Activity"
     Properties:
-      Name: !Sub "${SourceDataBucketName}-SalesPipeline_QuickSightSample.csv"
+      Name: !Sub "${DataBucketName}-SalesPipeline_QuickSightSample.csv"
 
   WaitForMarketingDataActivity:
     Type: "AWS::StepFunctions::Activity"
     Properties:
-      Name: !Sub "${SourceDataBucketName}-MarketingData_QuickSightSample.csv"
+      Name: !Sub "${DataBucketName}-MarketingData_QuickSightSample.csv"
 
 
   # State Machine resources
@@ -141,9 +141,9 @@ Resources:
             GlueDatabaseName: !Ref MarketingAndSalesDatabaseName,
             GlueTableName: !Ref MarketingTableName,
             AthenaRunnerActivityArn: !Ref AthenaRunnerActivity,
-            AthenaResultOutputLocation: !Sub "s3://${SourceDataBucketName}/athena-runner-output/",
+            AthenaResultOutputLocation: !Sub "s3://${DataBucketName}/athena-runner-output/",
             AthenaResultEncryptionOption: "SSE_S3"
-        }
+          }
       RoleArn: !GetAtt StateExecutionRole.Arn
 
   MarketingAndSalesETLOrchestrator:
@@ -256,15 +256,52 @@ Resources:
         - Effect: Allow
           Principal:
             Service:
-            - lambda.amazonaws.com
+              - lambda.amazonaws.com
           Action:
-          - sts:AssumeRole
+            - sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
         - arn:aws:iam::aws:policy/AmazonSNSFullAccess
         - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
         - arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess
       Path: "/"
+
+  OnS3ObjectCreatedPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyDocument: {
+        "Version": "2012-10-17",
+        "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "logs:CreateLogStream",
+            "logs:PutLogEvents"
+          ],
+          "Resource": !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+        },
+        {
+          "Effect": "Allow",
+          "Action": "logs:CreateLogGroup",
+          "Resource": "*"
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "states:SendTaskSuccess",
+            "states:SendTaskFailure",
+            "states:SendTaskHeartbeat",
+            "states:GetActivityTask"
+          ],
+          "Resource": "*"
+        }
+        ]
+      }
+      PolicyName: "OnS3ObjectCreatedPolicy"
+      Roles:
+        - !Ref OnS3ObjectCreatedLambdaExecutionRole
+
+
 
   OnS3ObjectCreatedLambdaFunction:
     Type: "AWS::Lambda::Function"
@@ -274,8 +311,8 @@ Resources:
       Handler: "ons3objectcreated.handler"
       Role: !GetAtt OnS3ObjectCreatedLambdaExecutionRole.Arn
       Code:
-        S3Bucket: !Ref SourceS3BucketName
-        S3Key: !Ref SourceS3Key
+        S3Bucket: !Ref ArtifactBucketName
+        S3Key: !Ref LambdaSourceS3Key
       Timeout: 180 #seconds
       MemorySize: 128 #MB
       Runtime: python2.7
@@ -284,14 +321,13 @@ Resources:
 
   # For every bucket that needs to invoke OnS3ObjectCreated:
 
-  SourceDataBucket:
+  DataBucket:
     Type: "AWS::S3::Bucket"
     Properties:
-      BucketName: !Ref SourceDataBucketName
+      BucketName: !Ref DataBucketName
       NotificationConfiguration:
         LambdaConfigurations:
-          -
-            Function: !GetAtt OnS3ObjectCreatedLambdaFunction.Arn
+          - Function: !GetAtt OnS3ObjectCreatedLambdaFunction.Arn
             Event: "s3:ObjectCreated:*"
             Filter:
               S3Key:
@@ -300,13 +336,13 @@ Resources:
                     Name: "suffix"
                     Value: "csv"
     DependsOn:
-      - SourceDataBucketPermission
+      - DataBucketPermission
 
-  SourceDataBucketPermission:
+  DataBucketPermission:
     Type: "AWS::Lambda::Permission"
     Properties:
       Action: 'lambda:InvokeFunction'
       FunctionName: !Ref OnS3ObjectCreatedLambdaFunction
       Principal: s3.amazonaws.com
       SourceAccount: !Ref "AWS::AccountId"
-      SourceArn: !Sub "arn:aws:s3:::${SourceDataBucketName}"
+      SourceArn: !Sub "arn:aws:s3:::${DataBucketName}"

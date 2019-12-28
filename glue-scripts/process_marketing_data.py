@@ -45,7 +45,6 @@ mktg_DyF = ApplyMapping.apply(frame=mktg_DyF, mappings=[
     ('return visitors', 'bigint', 'return_visitors', 'bigint'),
         ], transformation_ctx='applymapping1')
 
-print 'Count:  ', mktg_DyF.count()
 mktg_DyF.printSchema()
 
 mktg_DF = mktg_DyF.toDF()

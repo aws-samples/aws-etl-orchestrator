@@ -34,7 +34,7 @@ def load_config():
 def is_json(jsonstring):
     try:
         json_object = json.loads(jsonstring)
-    except ValueError, e:
+    except ValueError:
         return False
     return True
 
@@ -146,102 +146,106 @@ def check_glue_jobs(config):
 
     # For each item...
     for item in ddb_resp['Items']:
-
         glue_job_run_id = item['glue_job_run_id']
         glue_job_name = item['glue_job_name']
         sfn_task_token = item['sfn_task_token']
 
-        logger.debug('Polling Glue job run status..')
+        try:
 
-        # Query glue job status...
-        glue_resp = glue.get_job_run(
-            JobName=glue_job_name,
-            RunId=glue_job_run_id,
-            PredecessorsIncluded=False
-        )
+            logger.debug('Polling Glue job run status..')
 
-        job_run_state = glue_resp['JobRun']['JobRunState']
-        job_run_error_message = glue_resp['JobRun'].get('ErrorMessage', '')
-
-        logger.debug('Job with Run Id {} is currently in state "{}"'.format(glue_job_run_id, job_run_state))
-
-        # If Glue job completed, return success:
-        if job_run_state in ['SUCCEEDED']:
-
-            logger.info('Job with Run Id {} SUCCEEDED.'.format(glue_job_run_id))
-
-            # Build an output dict and format it as JSON
-            task_output_dict = {
-                "GlueJobName": glue_job_name,
-                "GlueJobRunId": glue_job_run_id,
-                "GlueJobRunState": job_run_state,
-                "GlueJobStartedOn": glue_resp['JobRun'].get('StartedOn', '').strftime('%x, %-I:%M %p %Z'),
-                "GlueJobCompletedOn": glue_resp['JobRun'].get('CompletedOn', '').strftime('%x, %-I:%M %p %Z'),
-                "GlueJobLastModifiedOn": glue_resp['JobRun'].get('LastModifiedOn', '').strftime('%x, %-I:%M %p %Z')
-            }
-
-            task_output_json = json.dumps(task_output_dict)
-
-
-            logger.info('Sending "Task Succeeded" signal to Step Functions..')
-            sfn_resp = sfn.send_task_success(
-                taskToken=sfn_task_token,
-                output=task_output_json
+            # Query glue job status...
+            glue_resp = glue.get_job_run(
+                JobName=glue_job_name,
+                RunId=glue_job_run_id,
+                PredecessorsIncluded=False
             )
 
-            # Delete item
-            resp = ddb_table.delete_item(
-                Key={
-                    'sfn_activity_arn': sfn_activity_arn,
-                    'glue_job_run_id': glue_job_run_id
+            job_run_state = glue_resp['JobRun']['JobRunState']
+            job_run_error_message = glue_resp['JobRun'].get('ErrorMessage', '')
+
+            logger.debug('Job with Run Id {} is currently in state "{}"'.format(glue_job_run_id, job_run_state))
+
+            # If Glue job completed, return success:
+            if job_run_state in ['SUCCEEDED']:
+
+                logger.info('Job with Run Id {} SUCCEEDED.'.format(glue_job_run_id))
+
+                # Build an output dict and format it as JSON
+                task_output_dict = {
+                    "GlueJobName": glue_job_name,
+                    "GlueJobRunId": glue_job_run_id,
+                    "GlueJobRunState": job_run_state,
+                    "GlueJobStartedOn": glue_resp['JobRun'].get('StartedOn', '').strftime('%x, %-I:%M %p %Z'),
+                    "GlueJobCompletedOn": glue_resp['JobRun'].get('CompletedOn', '').strftime('%x, %-I:%M %p %Z'),
+                    "GlueJobLastModifiedOn": glue_resp['JobRun'].get('LastModifiedOn', '').strftime('%x, %-I:%M %p %Z')
                 }
-            )
 
-            # Task succeeded, next item
+                task_output_json = json.dumps(task_output_dict)
 
-        elif job_run_state in ['STARTING', 'RUNNING', 'STARTING', 'STOPPING']:
-            logger.debug('Job with Run Id {} hasn\'t succeeded yet.'.format(glue_job_run_id))
+                logger.info('Sending "Task Succeeded" signal to Step Functions..')
+                sfn_resp = sfn.send_task_success(
+                    taskToken=sfn_task_token,
+                    output=task_output_json
+                )
 
-            # Send heartbeat
-            sfn_resp = sfn.send_task_heartbeat(
-                taskToken=sfn_task_token
-            )
+                # Delete item
+                resp = ddb_table.delete_item(
+                    Key={
+                        'sfn_activity_arn': sfn_activity_arn,
+                        'glue_job_run_id': glue_job_run_id
+                    }
+                )
 
-            logger.debug('Heartbeat sent to Step Functions.')
+                # Task succeeded, next item
 
-            # Heartbeat sent, next item
+            elif job_run_state in ['STARTING', 'RUNNING', 'STARTING', 'STOPPING']:
+                logger.debug('Job with Run Id {} hasn\'t succeeded yet.'.format(glue_job_run_id))
 
-        elif job_run_state in ['FAILED', 'STOPPED']:
+                # Send heartbeat
+                sfn_resp = sfn.send_task_heartbeat(
+                    taskToken=sfn_task_token
+                )
 
-            message = 'Glue job "{}" run with Run Id "{}" failed. Last state: {}. Error message: {}'\
-                .format(glue_job_name, glue_job_run_id[:8] + "...", job_run_state, job_run_error_message)
+                logger.debug('Heartbeat sent to Step Functions.')
 
-            logger.error(message)
+                # Heartbeat sent, next item
 
-            message_json={
-                'glue_job_name': glue_job_name,
-                'glue_job_run_id': glue_job_run_id,
-                'glue_job_run_state': job_run_state,
-                'glue_job_run_error_msg': job_run_error_message
-            }
+            elif job_run_state in ['FAILED', 'STOPPED']:
 
-            sfn_resp = sfn.send_task_failure(
-                taskToken=sfn_task_token,
-                cause=json.dumps(message_json),
-                error='GlueJobFailedError'
-            )
+                message = 'Glue job "{}" run with Run Id "{}" failed. Last state: {}. Error message: {}' \
+                    .format(glue_job_name, glue_job_run_id[:8] + "...", job_run_state, job_run_error_message)
 
-            # Delete item
-            resp = ddb_table.delete_item(
-                Key={
-                    'sfn_activity_arn': sfn_activity_arn,
-                    'glue_job_run_id': glue_job_run_id
+                logger.error(message)
+
+                message_json = {
+                    'glue_job_name': glue_job_name,
+                    'glue_job_run_id': glue_job_run_id,
+                    'glue_job_run_state': job_run_state,
+                    'glue_job_run_error_msg': job_run_error_message
                 }
-            )
 
-            logger.error(message)
+                sfn_resp = sfn.send_task_failure(
+                    taskToken=sfn_task_token,
+                    cause=json.dumps(message_json),
+                    error='GlueJobFailedError'
+                )
 
-            # Task failed, next item
+                # Delete item
+                resp = ddb_table.delete_item(
+                    Key={
+                        'sfn_activity_arn': sfn_activity_arn,
+                        'glue_job_run_id': glue_job_run_id
+                    }
+                )
+
+                logger.error(message)
+                # Task failed, next item
+        except Exception as e:
+            logger.error('There was a problem checking status of Glue job "{}"..'.format(glue_job_name))
+            logger.error('Glue job Run Id "{}"'.format(glue_job_run_id))
+            logger.error('Reason: {}'.format(e.message))
+            logger.info('Checking next Glue job.')
 
 
 glue = boto3.client('glue')

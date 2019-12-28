@@ -51,7 +51,6 @@ sales_DyF = ApplyMapping.apply(frame=sales_DyF, mappings=[
     ('last status entry', 'string', 'last_status_entry', 'string'),
         ], transformation_ctx='applymapping1')
 
-print 'Count:  ', sales_DyF.count()
 sales_DyF.printSchema()
 
 sales_DF = sales_DyF.toDF()

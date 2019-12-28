@@ -72,3 +72,9 @@ notebook
 
 # Pynt
 *.pyc
+
+# Python Virtual Environment
+venv
+
+# Copy of customized configuration files
+config-copy

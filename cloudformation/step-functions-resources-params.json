@@ -1,10 +1,10 @@
 [
   {
-    "ParameterKey": "SourceS3BucketName",
+    "ParameterKey": "ArtifactBucketName",
     "ParameterValue": "<NO-DEFAULT>"
   },
   {
-    "ParameterKey": "SourceS3Key",
+    "ParameterKey": "LambdaSourceS3Key",
     "ParameterValue": "src/ons3objectcreated.zip"
   },
   {
@@ -12,7 +12,7 @@
     "ParameterValue": "GlueRunnerActivity"
   },
   {
-    "ParameterKey": "SourceDataBucketName",
-    "ParameterValue": "<NO-DEFAULT>"
+    "ParameterKey": "DataBucketName",
+    "ParameterValue": "etl-orchestrator-745-data"
   }
 ]

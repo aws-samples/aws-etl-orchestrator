@@ -38,59 +38,61 @@ Parameters:
     Default: "marketing_qs"
     Description: "Name of the Marketing data table in AWS Glue."
 
-  S3ETLScriptPath:
+  ETLScriptsPrefix:
     Type: String
-    MinLength: "4"
+    MinLength: "1"
     Description: "Location of the Glue job ETL scripts in S3."
 
-  S3ETLOutputPath:
+  ETLOutputPrefix:
     Type: String
-    MinLength: "10"
+    MinLength: "1"
     Description: "Name of the S3 output path to which this CloudFormation template's AWS Glue jobs are going to write ETL output."
 
-  SourceDataBucketName:
+  DataBucketName:
     Type: String
     MinLength: "1"
     Description: "Name of the S3 bucket in which the source Marketing and Sales data will be uploaded. Bucket is created by this CFT."
 
+  ArtifactBucketName:
+    Type: String
+    MinLength: "1"
+    Description: "Name of the S3 bucket in which the Marketing and Sales ETL scripts reside. Bucket is NOT created by this CFT."
+
 Resources:
 
   ### AWS GLUE RESOURCES ###
-  AWSGlueCrawlerRole:
-    Type: "AWS::IAM::Role"
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - glue.amazonaws.com
-          Action:
-          - sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonS3FullAccess
-        - arn:aws:iam::aws:policy/AdministratorAccess
-        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
-      Path: "/"
-
   AWSGlueJobRole:
     Type: "AWS::IAM::Role"
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - glue.amazonaws.com
-          Action:
-          - sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              Service:
+                - glue.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                  - "s3:ListBucket"
+                  - "s3:DeleteObject"
+                Resource:
+                  - !Sub "arn:aws:s3:::${DataBucketName}"
+                  - !Sub "arn:aws:s3:::${DataBucketName}/*"
+                  - !Sub "arn:aws:s3:::${ArtifactBucketName}"
+                  - !Sub "arn:aws:s3:::${ArtifactBucketName}/*"
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonS3FullAccess
-        - arn:aws:iam::aws:policy/AdministratorAccess
-        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
       Path: "/"
+
 
   MarketingAndSalesDatabase:
     Type: "AWS::Glue::Database"
@@ -170,7 +172,7 @@ Resources:
             }
             SerializationLibrary: "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe"
           Compressed: False
-          Location: !Sub "s3://${SourceDataBucketName}/sales/"
+          Location: !Sub "s3://${DataBucketName}/sales/"
         Retention: 0
         Name: !Ref SalesPipelineTableName
       DatabaseName: !Ref MarketingAndSalesDatabaseName
@@ -260,7 +262,7 @@ Resources:
             }
             SerializationLibrary: "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe"
           Compressed: False
-          Location: !Sub "s3://${SourceDataBucketName}/marketing/"
+          Location: !Sub "s3://${DataBucketName}/marketing/"
         Retention: 0
         Name: !Ref MarketingTableName
       DatabaseName: !Ref MarketingAndSalesDatabaseName
@@ -273,12 +275,12 @@ Resources:
       Name: "ProcessSalesData"
       Command: {
         "Name" : "glueetl",
-        "ScriptLocation" : !Sub "${S3ETLScriptPath}/process_sales_data.py"
+        "ScriptLocation": !Sub "s3://${ArtifactBucketName}/${ETLScriptsPrefix}/process_sales_data.py"
       }
       DefaultArguments: {
           "--database_name" : !Ref MarketingAndSalesDatabaseName,
           "--table_name" : !Ref SalesPipelineTableName,
-          "--s3_output_path" : !Sub "${S3ETLOutputPath}/tmp/sales"
+          "--s3_output_path": !Sub "s3://${DataBucketName}/${ETLOutputPrefix}/tmp/sales"
       }
       MaxRetries: 0
       Description: "Process Sales Pipeline data."
@@ -291,12 +293,12 @@ Resources:
       Name: "ProcessMarketingData"
       Command: {
         "Name" : "glueetl",
-        "ScriptLocation" : !Sub "${S3ETLScriptPath}/process_marketing_data.py"
+        "ScriptLocation": !Sub "s3://${ArtifactBucketName}/${ETLScriptsPrefix}/process_marketing_data.py"
       }
       DefaultArguments: {
           "--database_name" : !Ref MarketingAndSalesDatabaseName,
           "--table_name" : !Ref MarketingTableName,
-          "--s3_output_path" : !Sub "${S3ETLOutputPath}/tmp/marketing"
+          "--s3_output_path": !Sub "s3://${DataBucketName}/${ETLOutputPrefix}/tmp/marketing"
       }
       MaxRetries: 0
       Description: "Process Marketing data."
@@ -309,13 +311,13 @@ Resources:
       Name: "JoinMarketingAndSalesData"
       Command: {
         "Name" : "glueetl",
-        "ScriptLocation" : !Sub "${S3ETLScriptPath}/join_marketing_and_sales_data.py"
+        "ScriptLocation": !Sub "s3://${ArtifactBucketName}/${ETLScriptsPrefix}/join_marketing_and_sales_data.py"
       }
       DefaultArguments: {
-          "--database_name" : !Ref MarketingAndSalesDatabaseName,
-          "--s3_output_path" : !Sub "${S3ETLOutputPath}/sales-leads-influenced",
-          "--s3_sales_data_path" : !Sub "${S3ETLOutputPath}/tmp/sales",
-          "--s3_marketing_data_path" : !Sub "${S3ETLOutputPath}/tmp/marketing"
+        "--database_name": !Ref MarketingAndSalesDatabaseName,
+        "--s3_output_path": !Sub "s3://${DataBucketName}/${ETLOutputPrefix}/sales-leads-influenced",
+        "--s3_sales_data_path": !Sub "s3://${DataBucketName}/${ETLOutputPrefix}/tmp/sales",
+        "--s3_marketing_data_path": !Sub "s3://${DataBucketName}/${ETLOutputPrefix}/tmp/marketing"
       }
       MaxRetries: 0
       Description: "Join Marketing and Sales data."

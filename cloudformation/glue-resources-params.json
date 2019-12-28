@@ -1,14 +1,18 @@
 [
   {
-    "ParameterKey": "S3ETLScriptPath",
+    "ParameterKey": "ArtifactBucketName",
     "ParameterValue": "<NO-DEFAULT>"
   },
   {
-    "ParameterKey": "S3ETLOutputPath",
+    "ParameterKey": "ETLScriptsPrefix",
+    "ParameterValue": "scripts"
+  },
+  {
+    "ParameterKey": "DataBucketName",
     "ParameterValue": "<NO-DEFAULT>"
   },
   {
-    "ParameterKey": "SourceDataBucketName",
-    "ParameterValue": "<NO-DEFAULT>"
+    "ParameterKey": "ETLOutputPrefix",
+    "ParameterValue": "output"
   }
 ]

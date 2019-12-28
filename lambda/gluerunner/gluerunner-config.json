@@ -1,5 +1,5 @@
 {
-  "sfn_activity_arn": "<NO-DEFAULT>",
+  "sfn_activity_arn": "arn:aws:states:<AWS-REGION>:<AWS-ACCOUNTID>:activity:GlueRunnerActivity",
   "sfn_worker_name": "gluerunner",
   "ddb_table": "GlueRunnerActiveJobs",
   "ddb_query_limit": 50,

@@ -161,11 +161,11 @@ Specifies parameters for creation of the `gluerunner-lambda` CloudFormation stac
 ```json
 [
   {
-    "ParameterKey": "SourceS3BucketName",
+    "ParameterKey": "ArtifactBucketName",
     "ParameterValue": "<NO-DEFAULT>"
   },
   {
-    "ParameterKey": "SourceS3Key",
+    "ParameterKey": "LambdaSourceS3Key",
     "ParameterValue": "src/gluerunner.zip"
   },
   {
@@ -180,9 +180,9 @@ Specifies parameters for creation of the `gluerunner-lambda` CloudFormation stac
 ```
 #### Parameters:
 
-* `SourceS3BucketName` - The Amazon S3 bucket name (without the `s3://...` prefix) from which the Glue Runner AWS Lambda function package (.zip file) will be fetched by AWS CloudFormation.
+* `ArtifactBucketName` - The Amazon S3 bucket name (without the `s3://...` prefix) in which Glue scripts and Lambda function source will be stored. **If a bucket with such a name does not exist, the `deploylambda` build command will create it for you with appropriate permissions.**
 
-* `SourceS3Key` - The Amazon S3 key (e.g. `src/gluerunner.zip`) pointing to your AWS Lambda function's .zip package.
+* `LambdaSourceS3Key` - The Amazon S3 key (e.g. `src/gluerunner.zip`) pointing to your AWS Lambda function's .zip package in the artifact bucket.
 
 * `DDBTableName` - The Amazon DynamoDB table in which the state of active AWS Glue jobs is tracked between Glue Runner AWS Lambda function invocations.
 
@@ -196,11 +196,11 @@ Specifies parameters for creation of the `gluerunner-lambda` CloudFormation stac
 ```json
 [
   {
-    "ParameterKey": "SourceS3BucketName",
+    "ParameterKey": "ArtifactBucketName",
     "ParameterValue": "<NO-DEFAULT>"
   },
   {
-    "ParameterKey": "SourceS3Key",
+    "ParameterKey": "LambdaSourceS3Key",
     "ParameterValue": "src/athenarunner.zip"
   },
   {
@@ -215,9 +215,9 @@ Specifies parameters for creation of the `gluerunner-lambda` CloudFormation stac
 ```
 #### Parameters:
 
-* `SourceS3BucketName` - The Amazon S3 bucket name (without the `s3://...` prefix) from which the Athena Runner AWS Lambda function package (.zip file) will be fetched by AWS CloudFormation.
+* `ArtifactBucketName` - The Amazon S3 bucket name (without the `s3://...` prefix) in which Glue scripts and Lambda function source will be stored. **If a bucket with such a name does not exist, the `deploylambda` build command will create it for you with appropriate permissions.**
 
-* `SourceS3Key` - The Amazon S3 key (e.g. `src/athenarunner.zip`) pointing to your AWS Lambda function's .zip package.
+* `LambdaSourceS3Key` - The Amazon S3 key (e.g. `src/athenarunner.zip`) pointing to your AWS Lambda function's .zip package.
 
 * `DDBTableName` - The Amazon DynamoDB table in which the state of active AWS Athena queries is tracked between Athena Runner AWS Lambda function invocations.
 
@@ -234,20 +234,20 @@ Sample content:
 ```json
 {
   "gluerunner": {
-    "SourceS3BucketName": "<NO-DEFAULT>",
-    "SourceS3Key":"src/gluerunner.zip"
+    "ArtifactBucketName": "<NO-DEFAULT>",
+    "LambdaSourceS3Key":"src/gluerunner.zip"
   },
   "ons3objectcreated": {
-    "SourceS3BucketName": "<NO-DEFAULT>",
-    "SourceS3Key":"src/ons3objectcreated.zip"
+    "ArtifactBucketName": "<NO-DEFAULT>",
+    "LambdaSourceS3Key":"src/ons3objectcreated.zip"
   }
 }
 ```
 #### Parameters:
 
-* `SourceS3BucketName` - The Amazon S3 bucket name (without the `s3://...` prefix) to which the Glue Runner AWS Lambda function package (.zip file) will be deployed. If a bucket with such a name does not exist, the `deploylambda` build command will create it for you with appropriate permissions.
+* `ArtifactBucketName` - The Amazon S3 bucket name (without the `s3://...` prefix) in which Glue scripts and Lambda function source will be stored. **If a bucket with such a name does not exist, the `deploylambda` build command will create it for you with appropriate permissions.**
 
-* `SourceS3Key` - The Amazon S3 key (e.g. `src/gluerunner.zip`) for your AWS Lambda function's .zip package.
+* `LambdaSourceS3Key` - The Amazon S3 key (e.g. `src/gluerunner.zip`) for your AWS Lambda function's .zip package.
 
 >**NOTE: The values set here must match values set in `cloudformation/gluerunner-lambda-params.json`.**
 
@@ -260,26 +260,34 @@ Specifies parameters for creation of the `glue-resources` CloudFormation stack (
 ```json
 [
   {
-    "ParameterKey": "S3ETLScriptPath",
+    "ParameterKey": "ArtifactBucketName",
     "ParameterValue": "<NO-DEFAULT>"
   },
   {
-    "ParameterKey": "S3ETLOutputPath",
+    "ParameterKey": "ETLScriptsPrefix",
+    "ParameterValue": "scripts"
+  },
+  {
+    "ParameterKey": "DataBucketName",
     "ParameterValue": "<NO-DEFAULT>"
   },
   {
-    "ParameterKey": "SourceDataBucketName",
-    "ParameterValue": "<NO-DEFAULT>"
+    "ParameterKey": "ETLOutputPrefix",
+    "ParameterValue": "output"
   }
 ]
 ```
 #### Parameters:
 
-* `S3ETLScriptPath` - The Amazon S3 path (including bucket name and prefix in ``s3://example/path`` format) to which AWS Glue scripts under `glue-scripts` directory will be dpeloyed. 
+* `ArtifactBucketName` - The Amazon S3 bucket name (without the `s3://...` prefix) that will be created by the `step-functions-resources.yaml` CloudFormation template. **If a bucket with such a name does not exist, the `deploylambda` build command will create it for you with appropriate permissions.**
 
-* `S3ETLOutputPath` - The Amazon S3 path to which AWS Glue jobs will produce their intermediary outputs.
+* `ETLScriptsPrefix` - The Amazon S3 prefix (in the format ``example/path`` without leading or trailing '/') to which AWS Glue scripts will be deployed in the artifact bucket. Glue scripts can be found under the `glue-scripts` project directory 
 
-* `SourceDataBucketName` - The Amazon S3 bucket name (without the `s3://...` prefix) that will be created by the `step-functions-resources.yaml` CloudFormation template. This is the bucket to which Sales and Marketing datasets must be uploaded.
+* `DataBucketName` - The Amazon S3 bucket name (without the `s3://...` prefix) that will be created by the `step-functions-resources.yaml` CloudFormation template. This is the bucket to which Sales and Marketing datasets must be uploaded. It is also the bucket in which output will be created. **This bucket is created by `step-functions-resources` CloudFormation. CloudFormation stack creation will fail if the bucket already exists.**
+
+* `ETLOutputPrefix` - The Amazon S3 prefix (in the format ``example/path`` without leading or trailing '/') to which AWS Glue jobs will produce their intermediary outputs. This path will be created in the data bucket.
+
+
 
 The parameters are used by AWS CloudFormation during the creation of `glue-resources` stack.
 
@@ -290,7 +298,7 @@ Specifies the parameters used by Glue Runner AWS Lambda function at run-time.
 
 ```json
 {
-  "sfn_activity_arn": "<NO-DEFAULT>",
+  "sfn_activity_arn": "arn:aws:states:<AWS-REGION>:<AWS-ACCOUNT-ID>:activity:GlueRunnerActivity",
   "sfn_worker_name": "gluerunner",
   "ddb_table": "GlueRunnerActiveJobs",
   "ddb_query_limit": 50,
@@ -299,7 +307,7 @@ Specifies the parameters used by Glue Runner AWS Lambda function at run-time.
 ```
 #### Parameters:
 
-* `sfn_activity_arn` - AWS Step Functions activity task ARN. This ARN is used to query AWS Step Functions for new tasks (i.e. new AWS Glue jobs to run). The ARN is a combination of the AWS region, your AWS account Id, and the name property of the  [AWS::StepFunctions::Activity](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-activity.html) resource in the `stepfunctions-resources.yaml` CloudFormation template. An ARN looks as follows `arn:aws:states:<AWS-REGION>:<YOUR-AWS-ACCOUNT-ID>:activity:<STEPFUNCTIONS-ACTIVITY-NAME>`. By default, the activity name is `GlueRunnerActivity`.
+* `sfn_activity_arn` - AWS Step Functions activity task ARN. This ARN is used to query AWS Step Functions for new tasks (i.e. new AWS Glue jobs to run). The ARN is a combination of the AWS region, your AWS account Id, and the name property of the  [AWS::StepFunctions::Activity](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-activity.html) resource in the `stepfunctions-resources.yaml` CloudFormation template. An ARN looks as follows `arn:aws:states:<AWS-REGION>:<AWS-ACCOUNT-ID>:activity:<STEPFUNCTIONS-ACTIVITY-NAME>`. By default, the activity name is `GlueRunnerActivity`.
 
 * `sfn_worker_name` - A property that is passed to AWS Step Functions when getting activity tasks.
 
@@ -317,11 +325,11 @@ Specifies parameters for creation of the `step-functions-resources` CloudFormati
 ```json
 [
   {
-    "ParameterKey": "SourceS3BucketName",
+    "ParameterKey": "ArtifactBucketName",
     "ParameterValue": "<NO-DEFAULT>"
   },
   {
-    "ParameterKey": "SourceS3Key",
+    "ParameterKey": "LambdaSourceS3Key",
     "ParameterValue": "src/ons3objectcreated.zip"
   },
   {
@@ -329,7 +337,7 @@ Specifies parameters for creation of the `step-functions-resources` CloudFormati
     "ParameterValue": "GlueRunnerActivity"
   },
   {
-    "ParameterKey": "SourceDataBucketName",
+    "ParameterKey": "DataBucketName",
     "ParameterValue": "<NO-DEFAULT>"
   }
 ]
@@ -340,11 +348,11 @@ Specifies parameters for creation of the `step-functions-resources` CloudFormati
 
 Both parameters are also used by AWS CloudFormation during stack creation.
 
-* `SourceS3BucketName` - The Amazon S3 bucket name (without the `s3://...` prefix) to which the `ons3objectcreated` AWS Lambda function package (.zip file) will be deployed. If a bucket with such a name does not exist, the `deploylambda` build command will create it for you with appropriate permissions.
+* `ArtifactBucketName` - The Amazon S3 bucket name (without the `s3://...` prefix) to which the `ons3objectcreated` AWS Lambda function package (.zip file) will be deployed. If a bucket with such a name does not exist, the `deploylambda` build command will create it for you with appropriate permissions.
 
-* `SourceS3Key` - The Amazon S3 key (e.g. `src/ons3objectcreated.zip`) for your AWS Lambda function's .zip package.
+* `LambdaSourceS3Key` - The Amazon S3 key (e.g. `src/ons3objectcreated.zip`) for your AWS Lambda function's .zip package.
 
-* `SourceDataBucketName` - The Amazon S3 bucket name (without the `s3://...` prefix).  All OnS3ObjectCreated CloudWatch Events will for the bucket be handled by the `ons3objectcreated` AWS Lambda function. **This bucket will be created by CloudFormation. CloudFormation stack creation will fail if the bucket already exists.**
+* `DataBucketName` - The Amazon S3 bucket name (without the `s3://...` prefix).  All OnS3ObjectCreated CloudWatch Events will for the bucket be handled by the `ons3objectcreated` AWS Lambda function. **This bucket will be created by CloudFormation. CloudFormation stack creation will fail if the bucket already exists.**
 
 <a name="build-commands"></a>
 # Build commands
@@ -490,7 +498,15 @@ pynt createstack["athenarunner-lambda"]
 
 Note that the `step-functions-resources` stack **must** be created first, before the `glue-resources` stack.
 
-Now head to the AWS Step Functions console. Start and observe an execution of the 'MarketingAndSalesETLOrchestrator' state machine. Execution should halt at the 'Wait for XYZ Data' states. At this point, you should upload the sample .CSV files under the `samples` directory to the S3 bucket you specified as the `SourceDataBucketName` parameter value in `step-functions-resources-config.json` configuration file. This should allow the state machine to move on to next steps -- Process Sales Data and Process Marketing Data.
+Now head to the AWS Step Functions console. Start and observe an execution of the 'MarketingAndSalesETLOrchestrator' state machine. Execution should halt at the 'Wait for XYZ Data' states. At this point, you should upload the sample .CSV files under the `samples` directory to the S3 bucket you specified as the `SourceDataBucketName` parameter value in `step-functions-resources-config.json` configuration file. **Upload the marketing sample file under prefix 'marketing' and the sales sample file under prefix 'sales'. To do that, you may issue the following AWS CLI commands while at the project's root directory:**
+
+```
+aws s3 cp samples/MarketingData_QuickSightSample.csv s3://{SourceDataBucketName}/marketing/
+
+aws s3 cp samples/SalesPipeline_QuickSightSample.csv s3://{SourceDataBucketName}/sales/
+```
+
+This should allow the state machine to move on to next steps -- Process Sales Data and Process Marketing Data.
 
 If you have setup and run the sample correctly, you should see this output in the AWS Step Functions console:
 

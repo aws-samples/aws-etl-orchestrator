@@ -29,12 +29,12 @@ Parameters:
     Default: "athenarunner"
     Description: "Name of the Lambda function that mediates between AWS Step Functions and AWS Athena."
 
-  SourceS3BucketName:
+  ArtifactBucketName:
     Type: String
     MinLength: "1"
     Description: "Name of the S3 bucket containing source .zip files."
 
-  SourceS3Key:
+  LambdaSourceS3Key:
     Type: String
     MinLength: "1"
     Description: "Name of the S3 key of Athena Runner lambda function .zip file."
@@ -53,46 +53,59 @@ Resources:
             - lambda.amazonaws.com
           Action:
           - sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonS3FullAccess
-        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
-        - arn:aws:iam::aws:policy/AmazonSNSFullAccess
-        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
-        - arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess
-
       Path: "/"
 
-  AmazonAthenaFullAccessPolicy:
+  AthenaRunnerPolicy:
     Type: "AWS::IAM::Policy"
     Properties:
       PolicyDocument: {
-          "Version": "2012-10-17",
-          "Statement": [
-              {
-                  "Effect": "Allow",
-                  "Action": "athena:*",
-                  "Resource": "*"
-              }
-          ]
+        "Version": "2012-10-17",
+        "Statement": [{
+                        "Effect": "Allow",
+                        "Action": [
+                          "dynamodb:GetItem",
+                          "dynamodb:Query",
+                          "dynamodb:PutItem",
+                          "dynamodb:UpdateItem",
+                          "dynamodb:DeleteItem"
+                        ],
+                        "Resource": !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DDBTableName}"
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:CreateLogStream",
+                          "logs:PutLogEvents"
+                        ],
+                        "Resource": !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": "logs:CreateLogGroup",
+                        "Resource": "*"
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "states:SendTaskSuccess",
+                          "states:SendTaskFailure",
+                          "states:SendTaskHeartbeat",
+                          "states:GetActivityTask"
+                        ],
+                        "Resource": "*"
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "athena:StartQueryExecution",
+                          "athena:GetQueryExecution",
+                          "athena:GetNamedQuery"
+                        ],
+                        "Resource": "*"
+                      }
+        ]
       }
-      PolicyName: "AmazonAthenaFullAccessForAthenaRunner"
-      Roles:
-        - !Ref AthenaRunnerLambdaExecutionRole
-
-  AWSGlueFullAccessPolicy:
-    Type: "AWS::IAM::Policy"
-    Properties:
-      PolicyDocument: {
-          "Version": "2012-10-17",
-          "Statement": [
-              {
-                  "Effect": "Allow",
-                  "Action": "glue:*",
-                  "Resource": "*"
-              }
-          ]
-      }
-      PolicyName: "AWSGlueFullAccessForAthenaRunner"
+      PolicyName: "AthenaRunnerPolicy"
       Roles:
         - !Ref AthenaRunnerLambdaExecutionRole
 
@@ -104,14 +117,12 @@ Resources:
       Handler: "athenarunner.handler"
       Role: !GetAtt AthenaRunnerLambdaExecutionRole.Arn
       Code:
-        S3Bucket: !Ref SourceS3BucketName
-        S3Key: !Ref SourceS3Key
+        S3Bucket: !Ref ArtifactBucketName
+        S3Key: !Ref LambdaSourceS3Key
       Timeout: 180 #seconds
       MemorySize: 128 #MB
       Runtime: python2.7
     DependsOn:
-      - AmazonAthenaFullAccessPolicy
-      - AWSGlueFullAccessPolicy
       - AthenaRunnerLambdaExecutionRole
 
   ScheduledRule:

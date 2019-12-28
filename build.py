@@ -17,12 +17,15 @@ import os
 import shutil
 import zipfile
 import time
+
+from pip._vendor.distlib.compat import raw_input
 from pynt import task
 import boto3
 import botocore
 from botocore.exceptions import ClientError
 import json
 import re
+
 
 def write_dir_to_zip(src, zf):
     '''Write a directory tree to an open ZipFile object.'''
@@ -31,8 +34,8 @@ def write_dir_to_zip(src, zf):
         for filename in files:
             absname = os.path.abspath(os.path.join(dirname, filename))
             arcname = absname[len(abs_src) + 1:]
-            print 'zipping %s as %s' % (os.path.join(dirname, filename),
-                                        arcname)
+            print('zipping {} as {}'.format(os.path.join(dirname, filename),
+                                            arcname))
             zf.write(absname, arcname)
 
 def read_json(jsonf_path):
@@ -63,7 +66,7 @@ def check_bucket_exists(s3path):
 @task()
 def clean():
     '''Clean build directory.'''
-    print 'Cleaning build directory...'
+    print('Cleaning build directory...')
     
     if os.path.exists('build'):
     	shutil.rmtree('build')
@@ -78,11 +81,11 @@ def packagelambda(* functions):
 
     os.chdir("build")
 
-    if(len(functions) == 0):
+    if len(functions) == 0:
         functions = ("athenarunner", "gluerunner", "ons3objectcreated")
 
     for function in functions:
-        print 'Packaging "{}" lambda function in directory'.format(function)
+        print('Packaging "{}" lambda function in directory'.format(function))
         zipf = zipfile.ZipFile("%s.zip" % function, "w", zipfile.ZIP_DEFLATED)
         
         write_dir_to_zip("../lambda/{}/".format(function), zipf)
@@ -99,7 +102,7 @@ def updatelambda(*functions):
     '''Directly update lambda function code in AWS (without upload to S3).'''
     lambda_client = boto3.client('lambda')
 
-    if(len(functions) == 0):
+    if len(functions) == 0:
         functions = ("athenarunner", "gluerunner", "ons3objectcreated")
 
     for function in functions:
@@ -115,7 +118,7 @@ def updatelambda(*functions):
 def deploylambda(*functions, **kwargs):
     '''Upload lambda functions .zip file to S3 for download by CloudFormation stack during creation.'''
 
-    if (len(functions) == 0):
+    if len(functions) == 0:
         functions = ("athenarunner", "gluerunner", "ons3objectcreated")
 
     region_name = boto3.session.Session().region_name
@@ -128,21 +131,21 @@ def deploylambda(*functions, **kwargs):
 
     for function in functions:
 
-        src_s3_bucket_name = params[function]['SourceS3BucketName']
-        src_s3_key = params[function]['SourceS3Key']
+        src_s3_bucket_name = params[function]['ArtifactBucketName']
+        src_s3_key = params[function]['LambdaSourceS3Key']
 
         if not src_s3_key and not src_s3_bucket_name:
             print(
-                "ERROR: Both Source S3 bucket name and S3 key must be specified for function '{}'. FUNCTION NOT DEPLOYED.".format(
+                "ERROR: Both Artifact S3 bucket name and Lambda source S3 key must be specified for function '{}'. FUNCTION NOT DEPLOYED.".format(
                     function))
             continue
 
         print("Checking if S3 Bucket '{}' exists...".format(src_s3_bucket_name))
 
-        if (not check_bucket_exists(src_s3_bucket_name)):
+        if not check_bucket_exists(src_s3_bucket_name):
             print("Bucket %s not found. Creating in region {}.".format(src_s3_bucket_name, region_name))
 
-            if (region_name == "us-east-1"):
+            if region_name == "us-east-1":
                 s3_client.create_bucket(
                     # ACL="authenticated-read",
                     Bucket=src_s3_bucket_name
@@ -156,7 +159,7 @@ def deploylambda(*functions, **kwargs):
                     }
                 )
 
-        print "Uploading function '{}' to '{}'".format(function, src_s3_key)
+        print("Uploading function '{}' to '{}'".format(function, src_s3_key))
 
         with open('build/{}.zip'.format(function), 'rb') as data:
             s3_client.upload_fileobj(data, src_s3_bucket_name, src_s3_key)
@@ -168,8 +171,9 @@ def deploylambda(*functions, **kwargs):
 def createstack(* stacks, **kwargs):
     '''Create stacks using CloudFormation.'''
 
-    if (len(stacks) == 0):
-        print("ERROR: Please specify a stack to create. Valid values are glue-resources, gluerunner-lambda, step-functions-resources.")
+    if len(stacks) == 0:
+        print(
+            "ERROR: Please specify a stack to create. Valid values are glue-resources, gluerunner-lambda, step-functions-resources.")
         return
 
     for stack in stacks:
@@ -183,7 +187,7 @@ def createstack(* stacks, **kwargs):
 
         cfn_client = boto3.client('cloudformation')
 
-        print("Attempting to CREATE '%s' stack using CloudFormation." % (stack_name))
+        print("Attempting to CREATE '%s' stack using CloudFormation." % stack_name)
         start_t = time.time()
         response = cfn_client.create_stack(
             StackName=stack_name,
@@ -197,7 +201,7 @@ def createstack(* stacks, **kwargs):
         print("Waiting until '%s' stack status is CREATE_COMPLETE" % stack_name)
 
         try:
-
+            # cc                     +o
             cfn_stack_delete_waiter = cfn_client.get_waiter('stack_create_complete')
             cfn_stack_delete_waiter.wait(StackName=stack_name)
             print("Stack CREATED in approximately %d secs." % int(time.time() - start_t))
@@ -211,8 +215,9 @@ def createstack(* stacks, **kwargs):
 def updatestack(* stacks, **kwargs):
     '''Update a CloudFormation stack.'''
 
-    if (len(stacks) == 0):
-        print("ERROR: Please specify a stack to create. Valid values are glue-resources, gluerunner-lambda, step-functions-resources.")
+    if len(stacks) == 0:
+        print(
+            "ERROR: Please specify a stack to create. Valid values are glue-resources, gluerunner-lambda, step-functions-resources.")
         return
 
     for stack in stacks:
@@ -226,7 +231,7 @@ def updatestack(* stacks, **kwargs):
 
         cfn_client = boto3.client('cloudformation')
 
-        print("Attempting to UPDATE '%s' stack using CloudFormation." % (stack_name))
+        print("Attempting to UPDATE '%s' stack using CloudFormation." % stack_name)
         try:
             start_t = time.time()
             response = cfn_client.update_stack(
@@ -244,13 +249,13 @@ def updatestack(* stacks, **kwargs):
 
             print("Stack UPDATED in approximately %d secs." % int(time.time() - start_t))
         except ClientError as e:
-            print "EXCEPTION: " + e.response["Error"]["Message"]
+            print("EXCEPTION: " + e.response["Error"]["Message"])
 
 @task()
 def stackstatus(* stacks):
     '''Check the status of a CloudFormation stack.'''
 
-    if (len(stacks) == 0):
+    if len(stacks) == 0:
         stacks = ("glue-resources", "gluerunner-lambda", "step-functions-resources")
 
     for stack in stacks:
@@ -263,18 +268,18 @@ def stackstatus(* stacks):
                 StackName=stack_name
             )
 
-            if(response["Stacks"][0]):
+            if response["Stacks"][0]:
                 print("Stack '%s' has the status '%s'" % (stack_name, response["Stacks"][0]["StackStatus"]))
 
         except ClientError as e:
-            print "EXCEPTION: " + e.response["Error"]["Message"]
+            print("EXCEPTION: " + e.response["Error"]["Message"])
 
 
 @task()
 def deletestack(* stacks):
     '''Delete stacks using CloudFormation.'''
 
-    if (len(stacks) == 0):
+    if len(stacks) == 0:
         print("ERROR: Please specify a stack to delete.")
         return
 
@@ -308,36 +313,38 @@ def deploygluescripts(**kwargs):
     glue_cfn_params = read_json("cloudformation/glue-resources-params.json")
 
     s3_etl_script_path = ''
-
+    bucket_name = ''
+    prefix = ''
     for param in glue_cfn_params:
-        if param['ParameterKey'] == 'S3ETLScriptPath':
-            s3_etl_script_path = param['ParameterValue']
+        if param['ParameterKey'] == 'ArtifactBucketName':
+            bucket_name = param['ParameterValue']
+        if param['ParameterKey'] == 'ETLScriptsPrefix':
+            prefix = param['ParameterValue']
 
-    if not s3_etl_script_path:
+    if not bucket_name or not prefix:
         print(
-            "ERROR: S3ETLScriptPath must be set in 'cloudformation/glue-resources-params.json'.")
+            "ERROR: ArtifactBucketName and ETLScriptsPrefix must be set in 'cloudformation/glue-resources-params.json'.")
         return
+
+    s3_etl_script_path = 's3://' + bucket_name + '/' + prefix
 
     result = re.search('s3://(.+?)/(.*)', s3_etl_script_path)
-    if(result is None):
-        print("ERROR: S3ETLScriptPath is malformed.")
+    if result is None:
+        print("ERROR: Invalid S3 ETL bucket name and/or script prefix.")
         return
 
-    s3_bucket_name = result.group(1)
-    s3_key = result.group(2)
+    print("Checking if S3 Bucket '{}' exists...".format(bucket_name))
 
-    print("Checking if S3 Bucket '{}' exists...".format(s3_bucket_name))
-
-    if (not check_bucket_exists(s3_bucket_name)):
-        print("ERROR: S3 bucket for path '{}' not found.".format(s3_etl_script_path))
+    if not check_bucket_exists(bucket_name):
+        print("ERROR: S3 bucket '{}' not found.".format(bucket_name))
         return
 
     for dirname, subdirs, files in os.walk(glue_scripts_path):
         for filename in files:
             absname = os.path.abspath(os.path.join(dirname, filename))
-            print "Uploading AWS Glue script '{}' to '{}/{}'".format(absname, s3_bucket_name, s3_key)
+            print("Uploading AWS Glue script '{}' to '{}/{}'".format(absname, bucket_name, prefix))
             with open(absname, 'rb') as data:
-                s3_client.upload_fileobj(data, s3_bucket_name, '{}/{}'.format(s3_key, filename))
+                s3_client.upload_fileobj(data, bucket_name, '{}/{}'.format(prefix, filename))
 
     return
 
@@ -348,9 +355,9 @@ def deletes3bucket(name):
 
     proceed = raw_input(
         "This command will DELETE ALL DATA in S3 bucket '%s' and the BUCKET ITSELF.\nDo you wish to continue? [Y/N] " \
-        % (name))
+        % name)
 
-    if (proceed.lower() != 'y'):
+    if proceed.lower() != 'y':
         print("Aborting deletion.")
         return
 
