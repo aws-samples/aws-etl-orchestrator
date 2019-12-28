@@ -452,7 +452,7 @@ You can issue the `deletestack` command as follows.
 pynt deletestack["glue-resources"]
 ```
 
-> NOTE: Before deleting `step-functions-resources` stack, you have to delete the S3 bucket specified in the `SourceDataBucketName` parameter value in `step-functions-resources-config.json` configuration file. You can use the `pynt deletes3bucket[<BUCKET-NAME>]` build command to delete the bucket.
+> NOTE: Before deleting `step-functions-resources` stack, you have to delete the S3 bucket specified in the `DataBucketName` parameter value in `step-functions-resources-config.json` configuration file. You can use the `pynt deletes3bucket[<BUCKET-NAME>]` build command to delete the bucket.
 
 As with `createstack`, you can check the status of stack deletion using the `stackstatus` build command.
 
@@ -498,7 +498,7 @@ pynt createstack["athenarunner-lambda"]
 
 Note that the `step-functions-resources` stack **must** be created first, before the `glue-resources` stack.
 
-Now head to the AWS Step Functions console. Start and observe an execution of the 'MarketingAndSalesETLOrchestrator' state machine. Execution should halt at the 'Wait for XYZ Data' states. At this point, you should upload the sample .CSV files under the `samples` directory to the S3 bucket you specified as the `SourceDataBucketName` parameter value in `step-functions-resources-config.json` configuration file. **Upload the marketing sample file under prefix 'marketing' and the sales sample file under prefix 'sales'. To do that, you may issue the following AWS CLI commands while at the project's root directory:**
+Now head to the AWS Step Functions console. Start and observe an execution of the 'MarketingAndSalesETLOrchestrator' state machine. Execution should halt at the 'Wait for XYZ Data' states. At this point, you should upload the sample .CSV files under the `samples` directory to the S3 bucket you specified as the `DataBucketName` parameter value in `step-functions-resources-config.json` configuration file. **Upload the marketing sample file under prefix 'marketing' and the sales sample file under prefix 'sales'. To do that, you may issue the following AWS CLI commands while at the project's root directory:**
 
 ```
 aws s3 cp samples/MarketingData_QuickSightSample.csv s3://{DataBucketName}/marketing/
