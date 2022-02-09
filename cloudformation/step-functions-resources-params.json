@@ -13,6 +13,6 @@
   },
   {
     "ParameterKey": "DataBucketName",
-    "ParameterValue": "etl-orchestrator-745-data"
+    "ParameterValue": "<NO-DEFAULT>"
   }
 ]
